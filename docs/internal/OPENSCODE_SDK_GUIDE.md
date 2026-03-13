@@ -50,6 +50,106 @@
   - [Custom Tools](#custom-tools)
   - [Using Tools via SDK](#using-tools-via-sdk)
   - [Tool Best Practices](#tool-best-practices)
+- [Events Deep Dive](#events-deep-dive)
+  - [What Are Events?](#what-are-events)
+  - [Why Use Events?](#why-use-events)
+  - [Event Architecture](#event-architecture)
+  - [Subscribing to Events](#subscribing-to-events)
+  - [Event Types](#event-types)
+    - [Session Events](#session-events)
+    - [File Events](#file-events)
+    - [Tool Events](#tool-events)
+    - [Message Events](#message-events)
+    - [Agent Events](#agent-events)
+    - [System Events](#system-events)
+  - [Filtering Events](#filtering-events)
+  - [Async vs Sync Consumption](#async-vs-sync-consumption)
+  - [Event-Driven Patterns](#event-driven-patterns)
+  - [Error Handling](#error-handling)
+  - [Performance Considerations](#performance-considerations)
+  - [Events Best Practices](#events-best-practices)
+- [Files Deep Dive](#files-deep-dive)
+  - [Understanding File Operations](#understanding-file-operations)
+  - [SDK File API Overview](#sdk-file-api-overview)
+  - [Searching Text (grep)](#searching-text-grep)
+    - [Basic Text Search](#basic-text-search)
+    - [Advanced Regex Patterns](#advanced-regex-patterns)
+    - [Filtering by File Type](#filtering-by-file-type)
+    - [Performance Optimization](#performance-optimization)
+  - [Finding Files (glob)](#finding-files-glob)
+    - [Glob Pattern Basics](#glob-pattern-basics)
+    - [Common Patterns](#common-patterns)
+    - [Combining with Filters](#combining-with-filters)
+  - [Listing Directories (list)](#listing-directories-list)
+    - [Basic Directory Listing](#basic-directory-listing)
+    - [Recursive Listings](#recursive-listings)
+    - [Filtering Results](#filtering-results)
+  - [Reading Files (read)](#reading-files-read)
+    - [Complete File Read](#complete-file-read)
+    - [Partial Reads (Line Ranges)](#partial-reads-line-ranges)
+    - [Handling Different Encodings](#handling-different-encodings)
+  - [File Status & Git Integration](#file-status--git-integration)
+  - [Symbol Search](#symbol-search)
+  - [Working with File Paths](#working-with-file-paths)
+  - [File Operation Patterns](#file-operation-patterns)
+  - [Security Considerations](#security-considerations)
+  - [Performance Tips](#performance-tips)
+  - [Troubleshooting File Operations](#troubleshooting-file-operations)
+- [Agents Deep Dive](#agents-deep-dive)
+  - [What Are Agents?](#what-are-agents)
+  - [Why Use Agents?](#why-use-agents)
+  - [Agent Architecture](#agent-architecture)
+  - [Agent Types](#agent-types)
+    - [Primary Agents](#primary-agents)
+    - [Subagents](#subagents)
+    - [System Agents](#system-agents)
+  - [Built-in Agents](#built-in-agents)
+    - [Build Agent](#build-agent)
+    - [Plan Agent](#plan-agent)
+    - [General Subagent](#general-subagent)
+    - [Explore Subagent](#explore-subagent)
+  - [Custom Agent Creation](#custom-agent-creation)
+    - [Method 1: JSON Configuration](#method-1-json-configuration)
+    - [Method 2: Markdown Files](#method-2-markdown-files)
+    - [Method 3: CLI Creation](#method-3-cli-creation)
+  - [Agent Configuration Options](#agent-configuration-options)
+    - [description](#description)
+    - [temperature](#temperature)
+    - [steps (max-steps)](#steps-max-steps)
+    - [disable](#disable)
+    - [prompt](#prompt)
+    - [model](#model)
+    - [tools](#tools)
+    - [permissions](#permissions)
+    - [mode](#mode)
+    - [hidden](#hidden)
+    - [task-permissions](#task-permissions)
+    - [color](#color)
+    - [top-p](#top-p)
+    - [additional options](#additional-options)
+  - [Agent Permissions Deep Dive](#agent-permissions-deep-dive)
+    - [Permission Levels](#permission-levels)
+    - [Tool-specific Permissions](#tool-specific-permissions)
+    - [Command-specific Permissions](#command-specific-permissions)
+    - [Wildcard Patterns](#wildcard-patterns)
+    - [Task Permissions (Subagent Invocation)](#task-permissions-subagent-invocation)
+  - [Using Agents via SDK](#using-agents-via-sdk)
+    - [List Available Agents](#list-available-agents)
+    - [Switch Agents in Session](#switch-agents-in-session)
+    - [Invoke Subagents](#invoke-subagents)
+    - [Create Custom Agent Sessions](#create-custom-agent-sessions)
+    - [Monitor Agent Activity](#monitor-agent-activity)
+  - [Agent Patterns](#agent-patterns)
+    - [Pattern 1: Specialized Workflows](#pattern-1-specialized-workflows)
+    - [Pattern 2: Cost Optimization](#pattern-2-cost-optimization)
+    - [Pattern 3: Quality Gates](#pattern-3-quality-gates)
+    - [Pattern 4: Hierarchical Delegation](#pattern-4-hierarchical-delegation)
+    - [Pattern 5: Agent Pool](#pattern-5-agent-pool)
+  - [Agent vs Tool Distinction](#agent-vs-tool-distinction)
+  - [Security Considerations](#security-considerations)
+  - [Performance Optimization](#performance-optimization)
+  - [Troubleshooting Agents](#troubleshooting-agents)
+  - [Best Practices](#best-practices)
 - [Common Questions](#common-questions)
 - [Next Steps](#next-steps)
 
@@ -2410,7 +2510,3571 @@ Features demonstrated:
 
 ---
 
+## Events Deep Dive
+
+Events provide **real-time notifications** about what's happening in OpenCode. They enable you to build reactive applications that respond to changes as they occur.
+
+### What Are Events?
+
+OpenCode uses **Server-Sent Events (SSE)** to push notifications from the server to connected clients. Events are emitted for:
+
+- Session state changes (started, completed, aborted)
+- File modifications (created, edited, deleted)
+- Tool executions (bash commands, file operations)
+- Message sending/receiving
+- Agent activities (sub-sessions, forks)
+- System events (server connected, errors)
+
+**Example event flow**:
+```
+Server → Client: {"type":"session.started","sessionID":"abc123"}
+Server → Client: {"type":"message.started","messageID":"msg1"}
+Server → Client: {"type":"tool.executed","tool":"bash","output":"..."}
+Server → Client: {"type":"message.completed","messageID":"msg1"}
+```
+
+### Why Use Events?
+
+Events enable **reactive programming** patterns:
+
+✅ **Real-time UI updates** - Show live progress in your app
+✅ **Logging & auditing** - Track everything that happens
+✅ **Analytics** - Gather metrics on usage patterns
+✅ **Notifications** - Alert users when tasks complete
+✅ **Integration** - Connect OpenCode to external systems
+✅ **Debugging** - See exactly what OpenCode is doing
+
+Without events, you'd have to constantly poll the server to check status.
+
+---
+
+## Event Architecture
+
+OpenCode uses **SSE (Server-Sent Events)** - a standard for streaming text-based events over HTTP.
+
+### Connection Flow
+
+```
+1. Client connects to /event endpoint
+2. Server sends initial "server.connected" event
+3. Subsequent events stream continuously
+4. Connection stays open until client disconnects
+5. Auto-reconnects if connection drops
+```
+
+### Event Structure
+
+Every event is a JSON object with:
+
+```typescript
+interface Event {
+  type: string;           // Event type (e.g., "session.started")
+  timestamp: string;      // ISO 8601 timestamp
+  sessionID?: string;     // Session ID (if session-related)
+  messageID?: string;     // Message ID (if message-related)
+  properties: object;     // Event-specific data
+}
+```
+
+Example:
+```json
+{
+  "type": "tool.executed",
+  "timestamp": "2025-03-13T10:30:00Z",
+  "sessionID": "abc123",
+  "messageID": "msg456",
+  "properties": {
+    "tool": "bash",
+    "command": "npm test",
+    "exitCode": 0,
+    "duration": 5420
+  }
+}
+```
+
+---
+
+## Subscribing to Events
+
+### Basic Subscription
+
+```typescript
+import { createOpencode } from "@opencode-ai/sdk";
+
+async function listenToEvents() {
+  const { client, server } = await createOpencode();
+
+  try {
+    // Subscribe to all events
+    const events = await client.event.subscribe();
+
+    // Process events as they arrive
+    for await (const event of events.stream) {
+      console.log(`[${event.type}]`, event.properties);
+      console.log(`  Time: ${event.timestamp}`);
+      if (event.sessionID) console.log(`  Session: ${event.sessionID}`);
+    }
+  } finally {
+    server.close();
+  }
+}
+
+listenToEvents();
+```
+
+The `events.stream` is an **async iterator** - it yields events as they arrive.
+
+### Filtering Events
+
+You can filter by event type using string patterns (wildcards):
+
+```typescript
+// Only session-related events
+const sessionEvents = await client.event.subscribe({
+  query: { eventType: "session.*" }
+});
+
+// Only tool events for bash
+const bashEvents = await client.event.subscribe({
+  query: { eventType: "tool.executed" }
+});
+
+// Multiple types (OR logic)
+const allFileEvents = await client.event.subscribe({
+  query: { eventType: "file.created,file.edited,file.deleted" }
+});
+
+// Wildcard patterns
+const allStartEvents = await client.event.subscribe({
+  query: { eventType: "*.started" }  // session.started, message.started, etc.
+});
+```
+
+---
+
+## Event Types
+
+OpenCode emits many event types. Here are the most useful ones:
+
+### Session Events
+
+#### `session.created`
+Fired when a new session is created.
+
+```typescript
+{
+  "type": "session.created",
+  "sessionID": "abc123",
+  "properties": {
+    "title": "My new session"
+  }
+}
+```
+
+#### `session.started`
+Emitted when the AI begins processing in a session.
+
+```typescript
+{
+  "type": "session.started",
+  "sessionID": "abc123",
+  "properties": {
+    "agent": "coder",
+    "model": "claude-3-5-sonnet"
+  }
+}
+```
+
+#### `session.completed`
+Fired when a session finishes successfully (or is marked complete).
+
+```typescript
+{
+  "type": "session.completed",
+  "sessionID": "abc123",
+  "properties": {
+    "messageCount": 15,
+    "duration": 45200
+  }
+}
+```
+
+#### `session.aborted`
+Emitted when a session is aborted (cancelled).
+
+```typescript
+{
+  "type": "session.aborted",
+  "sessionID": "abc123",
+  "properties": {
+    "reason": "user_requested"
+  }
+}
+```
+
+---
+
+### File Events
+
+#### `file.created`
+A file was created (via `write` tool).
+
+```typescript
+{
+  "type": "file.created",
+  "sessionID": "abc123",
+  "properties": {
+    "path": "src/components/NewButton.tsx",
+    "bytes": 1024
+  }
+}
+```
+
+#### `file.edited`
+A file was modified (via `edit` tool).
+
+```typescript
+{
+  "type": "file.edited",
+  "sessionID": "abc123",
+  "properties": {
+    "path": "src/api/users.ts",
+    "oldSize": 2048,
+    "newSize": 2100,
+    "edits": 3
+  }
+}
+```
+
+#### `file.deleted`
+A file was removed.
+
+```typescript
+{
+  "type": "file.deleted",
+  "sessionID": "abc123",
+  "properties": {
+    "path": "src/old/Deprecated.ts"
+  }
+}
+```
+
+---
+
+### Tool Events
+
+#### `tool.executed`
+A tool was executed (every tool call generates this).
+
+```typescript
+{
+  "type": "tool.executed",
+  "sessionID": "abc123",
+  "messageID": "msg456",
+  "properties": {
+    "tool": "bash",
+    "input": { "command": "npm test" },
+    "output": "PASS 5\nFAIL 0",
+    "duration": 12345
+  }
+}
+```
+
+Common tools: `bash`, `read`, `edit`, `write`, `grep`, `glob`, `webfetch`, `question`, etc.
+
+---
+
+### Message Events
+
+#### `message.started`
+AI began generating a response.
+
+```typescript
+{
+  "type": "message.started",
+  "sessionID": "abc123",
+  "messageID": "msg789",
+  "properties": {
+    "model": "claude-3-5-sonnet"
+  }
+}
+```
+
+#### `message.completed`
+AI finished generating a response.
+
+```typescript
+{
+  "type": "message.completed",
+  "sessionID": "abc123",
+  "messageID": "msg789",
+  "properties": {
+    "tokens": 1250,
+    "duration": 8900,
+    "toolCalls": 3  // Number of tools used
+  }
+}
+```
+
+#### `message.stream`
+Streaming chunk of AI response (when using streaming mode).
+
+```typescript
+{
+  "type": "message.stream",
+  "sessionID": "abc123",
+  "messageID": "msg789",
+  "properties": {
+    "text": "Here's",  // Partial text
+    "done": false
+  }
+}
+```
+
+---
+
+### Agent Events
+
+#### `agent.created`
+A new agent/sub-agent was spawned.
+
+```typescript
+{
+  "type": "agent.created",
+  "sessionID": "parent123",
+  "properties": {
+    "agentID": "child-agent-1",
+    "agent": "coder",
+    "parent": "parent123"
+  }
+}
+```
+
+#### `agent.completed`
+An agent finished its task.
+
+```typescript
+{
+  "type": "agent.completed",
+  "agentID": "child-agent-1",
+  "properties": {
+    "messageCount": 8,
+    "duration": 32000
+  }
+}
+```
+
+---
+
+### System Events
+
+#### `server.connected`
+First event sent on connection - indicates server is ready.
+
+```typescript
+{
+  "type": "server.connected",
+  "properties": {
+    "version": "0.123.0",
+    "features": ["sse", "experimental_lsp"]
+  }
+}
+```
+
+#### `error`
+An error occurred on the server.
+
+```typescript
+{
+  "type": "error",
+  "sessionID": "abc123",
+  "properties": {
+    "code": "TOOL_EXECUTION_FAILED",
+    "message": "Bash command failed: exit code 1",
+    "details": {
+      "tool": "bash",
+      "command": "npm install"
+    }
+  }
+}
+```
+
+#### `permission.required`
+A tool requires user permission (when tool permission is set to `ask`).
+
+```typescript
+{
+  "type": "permission.required",
+  "sessionID": "abc123",
+  "messageID": "msg456",
+  "properties": {
+    "tool": "bash",
+    "input": { "command": "rm -rf dist" },
+    "permissionID": "perm-789"
+  }
+}
+```
+
+You can respond to this via the TUI or programmatically:
+
+```typescript
+await client.postSessionByIdPermissionsByPermissionId({
+  path: { id: sessionID, permissionId: "perm-789" },
+  body: {
+    response: "allow",  // or "deny"
+    remember: true      // Remember for this session
+  }
+});
+```
+
+---
+
+## Filtering Events
+
+The `/event` endpoint accepts a query parameter `eventType` that supports:
+
+- **Single type**: `eventType=tool.executed`
+- **Multiple types**: `eventType=session.started,session.completed`
+- **Wildcards**: `eventType=session.*` (all session events)
+- **Prefix wildcards**: `eventType=*.started` (all "started" events)
+
+Example SDK usage:
+
+```typescript
+// Only error events
+const errors = await client.event.subscribe({
+  query: { eventType: "error" }
+});
+
+// All session events
+const sessionActivity = await client.event.subscribe({
+  query: { eventType: "session.*" }
+});
+
+// File modifications
+const fileChanges = await client.event.subscribe({
+  query: { eventType: "file.created,file.edited,file.deleted" }
+});
+
+// Everything except errors
+const nonErrors = await client.event.subscribe({
+  query: { eventType: "*-error" }  // Not supported, use client-side filter instead
+});
+```
+
+---
+
+## Async vs Sync Consumption
+
+### Async Iterator (Recommended)
+
+```typescript
+const events = await client.event.subscribe();
+
+for await (const event of events.stream) {
+  // Process each event as it arrives
+  handleEvent(event);
+}
+```
+
+This **blocks** until events arrive. Perfect for:
+- Dedicated event listeners
+- Long-running daemons
+- Real-time processing
+
+### Non-blocking with Promise.race
+
+```typescript
+const events = await client.event.subscribe();
+const eventsPromise = events.stream[Symbol.asyncIterator]();
+
+// Do other work while waiting for events
+while (true) {
+  const { done, value: event } = await Promise.race([
+    eventsPromise.next(),
+    someOtherAsyncTask()
+  ]);
+  
+  if (done) break;
+  console.log("Event:", event);
+}
+```
+
+### Collect into Array (Batch Processing)
+
+```typescript
+const events = await client.event.subscribe();
+const collected: Event[] = [];
+
+// Collect 100 events then stop
+for await (const event of events.stream) {
+  collected.push(event);
+  if (collected.length >= 100) break;
+}
+
+console.log(`Collected ${collected.length} events`);
+// Process batch...
+```
+
+---
+
+## Event-Driven Patterns
+
+### Pattern 1: Progress Indicator
+
+Show real-time progress to users:
+
+```typescript
+async function runWithProgress(sessionId: string) {
+  const events = await client.event.subscribe({
+    query: { eventType: "*.started,*.completed,*.executed" }
+  });
+
+  let toolCount = 0;
+  let messageCount = 0;
+
+  for await (const event of events.stream) {
+    switch (event.type) {
+      case 'tool.executed':
+        toolCount++;
+        console.log(`✓ Tool #${toolCount} completed: ${event.properties.tool}`);
+        break;
+      case 'message.completed':
+        messageCount++;
+        console.log(`✓ Message #${messageCount} done (${event.properties.tokens} tokens)`);
+        break;
+      case 'session.completed':
+        console.log(`\n✅ Session complete!`);
+        return;
+    }
+  }
+}
+```
+
+---
+
+### Pattern 2: Auto-Logging
+
+Log all activity to a file or database:
+
+```typescript
+import fs from 'fs';
+import { createOpencode } from "@opencode-ai/sdk";
+
+class EventLogger {
+  private logFile: fs.WriteStream;
+  
+  constructor(logPath = 'opencode-events.log') {
+    this.logFile = fs.createWriteStream(logPath, { flags: 'a' });
+  }
+  
+  async start(sessionId?: string) {
+    const { client } = await createOpencode();
+    
+    const filter = sessionId 
+      ? { eventType: '*', sessionID: sessionId }
+      : { eventType: '*' };
+    
+    const events = await client.event.subscribe({ query: filter });
+    
+    for await (const event of events.stream) {
+      this.logFile.write(JSON.stringify(event) + '\n');
+      this.logFile.flush();
+    }
+  }
+  
+  stop() {
+    this.logFile.close();
+  }
+}
+
+// Usage: node logger.js > events.jsonl
+const logger = new EventLogger();
+logger.start().catch(console.error);
+```
+
+This creates a **JSONL** (JSON Lines) log file - one event per line.
+
+---
+
+### Pattern 3: Notification System
+
+Send notifications when important events occur:
+
+```typescript
+import { Notification } from 'node-notifier';
+
+async function notifyOnCompletion() {
+  const { client } = await createOpencode();
+  const notifier = new Notification();
+  
+  const events = await client.event.subscribe({
+    query: { eventType: 'session.completed,error' }
+  });
+  
+  for await (const event of events.stream) {
+    if (event.type === 'session.completed') {
+      notifier.notify({
+        title: 'OpenCode',
+        message: 'Session finished successfully!',
+        sound: true
+      });
+    } else if (event.type === 'error') {
+      notifier.notify({
+        title: 'OpenCode Error',
+        message: event.properties.message,
+        sound: 'Basso'
+      });
+    }
+  }
+}
+```
+
+---
+
+### Pattern 4: Session Sync (Multi-Client)
+
+Keep multiple clients in sync:
+
+```typescript
+class SessionSync {
+  private sessions: Map<string, any> = new Map();
+  
+  async sync(sessionId: string) {
+    const { client } = await createOpencode();
+    
+    const events = await client.event.subscribe({
+      query: { 
+        eventType: 'session.*,message.*,file.*',
+        sessionID: sessionId
+      }
+    });
+    
+    for await (const event of events.stream) {
+      this.updateState(event);
+      this.broadcastToOtherClients(event);
+    }
+  }
+  
+  private updateState(event: Event) {
+    const { sessionID } = event;
+    if (!sessionID) return;
+    
+    if (!this.sessions.has(sessionID)) {
+      this.sessions.set(sessionID, { 
+        id: sessionID, 
+        messages: [], 
+        filesChanged: [] 
+      });
+    }
+    
+    const session = this.sessions.get(sessionID)!;
+    
+    switch (event.type) {
+      case 'message.completed':
+        session.messages.push(event.properties);
+        break;
+      case 'file.edited':
+      case 'file.created':
+      case 'file.deleted':
+        session.filesChanged.push(event.properties);
+        break;
+    }
+  }
+}
+```
+
+---
+
+### Pattern 5: Metrics & Analytics
+
+Track usage metrics:
+
+```typescript
+interface Metrics {
+  sessionCount: number;
+  totalMessages: number;
+  totalToolCalls: Map<string, number>;
+  totalDuration: number;
+  errors: number;
+}
+
+async function collectMetrics(durationMs: number): Promise<Metrics> {
+  const { client } = await createOpencode();
+  
+  const metrics: Metrics = {
+    sessionCount: 0,
+    totalMessages: 0,
+    totalToolCalls: new Map(),
+    totalDuration: 0,
+    errors: 0
+  };
+  
+  const events = await client.event.subscribe({
+    query: { eventType: 'session.*,message.*,error' }
+  });
+  
+  // Run for specified duration
+  const timeout = setTimeout(() => {}, durationMs);
+  
+  for await (const event of events.stream) {
+    switch (event.type) {
+      case 'session.created':
+        metrics.sessionCount++;
+        break;
+      case 'message.completed':
+        metrics.totalMessages++;
+        metrics.totalDuration += event.properties.duration || 0;
+        break;
+      case 'tool.executed':
+        const tool = event.properties.tool;
+        metrics.totalToolCalls.set(tool, (metrics.totalToolCalls.get(tool) || 0) + 1);
+        break;
+      case 'error':
+        metrics.errors++;
+        break;
+    }
+  }
+  
+  return metrics;
+}
+
+// Usage
+const metrics = await collectMetrics(60000); // Collect for 60 seconds
+console.log('Metrics:', metrics);
+```
+
+---
+
+## Troubleshooting Events
+
+### Problem: No events received
+
+**Solution**:
+- Verify server is running: `curl http://localhost:4096/global/health`
+- Check that SSE is supported (all modern servers support it)
+- Ensure you're reading from `events.stream` async iterator
+- Look for connection errors in try-catch
+
+### Problem: Events stop after some time
+
+**Solution**:
+- SSE connections can time out (server or proxy)
+- Implement auto-reconnect
+- Check server logs for crashes
+- Verify network stability
+
+### Problem: Missing expected events
+
+**Solution**:
+- Check your `eventType` filter - may be too restrictive
+- Some events may be disabled by configuration
+- Verify the action actually generates events (check server logs)
+- Try `eventType="*"` to receive all events temporarily
+
+### Problem: High memory usage
+
+**Solution**:
+- Don't accumulate events in arrays
+- Process events immediately or in small batches
+- Use stream processing patterns
+- Consider if you need all events or can filter
+
+---
+
+## Common Questions
+
+### Q: What's the difference between events and polling?
+
+**Answer**:
+- **Events**: Server pushes updates to you as they happen (real-time)
+- **Polling**: You repeatedly ask the server for updates (inefficient)
+
+Events are more efficient and provide lower latency.
+
+---
+
+### Q: Can I subscribe to events before they happen?
+
+**Answer**: Yes! Events are real-time - you subscribe and receive them as they occur. You cannot get past events (unless the server stores them and you query separately with `client.session.list()`, etc.).
+
+---
+
+### Q: Are events guaranteed to be delivered?
+
+**Answer**: No. SSE is fire-and-forget over HTTP. If the connection drops, events are lost. For guaranteed delivery, implement:
+- Client-side persistence
+- Server-side event storage (not built-in)
+- Acknowledgment and replay mechanism
+
+---
+
+### Q: Can I use events in the browser?
+
+**Answer**: The SDK is Node.js-only (requires localhost server). For browser use, you'd need:
+1. CORS enabled on server (`OPENCODE_SERVER_CORS=*`)
+2. Direct HTTP connection to SSE endpoint
+3. Or a WebSocket proxy (not officially supported)
+
+---
+
+### Q: How many concurrent event subscriptions can I have?
+
+**Answer**: Limited by:
+- Server resources (file descriptors)
+- Network capacity
+- Each subscription is a separate SSE connection
+- A single server can likely handle 100-1000 concurrent subscriptions
+
+---
+
+### Q: Do events include full data or just references?
+
+**Answer**: Events include relevant data inline (sessionID, file paths, command outputs). For large data (file contents, long outputs), the event contains metadata and you'd use other API calls to fetch full details.
+
+---
+
+### Q: Are there rate limits on events?
+
+**Answer**: No explicit rate limits, but:
+- High-frequency events can flood clients
+- Server can handle thousands of events/sec
+- Implement downstream rate limiting if needed for your use case
+
+---
+
+### Q: Can I filter events by custom properties?
+
+**Answer**: Currently filtering is limited to `eventType` and `sessionID`. For complex filtering, subscribe to all events and filter client-side:
+
+```typescript
+for await (const event of events.stream) {
+  if (event.properties.duration > 5000) {
+    // Only process long-running tools
+    await handleSlowTool(event);
+  }
+}
+```
+
+---
+
+### Q: How do I know when an AI response is complete?
+
+**Answer**: Listen for `message.completed` event:
+
+```typescript
+for await (const event of events.stream) {
+  if (event.type === 'message.completed' && 
+      event.messageID === targetMessageID) {
+    console.log('AI response ready!');
+  }
+}
+```
+
+---
+
+### Q: Can I get events from multiple sessions?
+
+**Answer**: Yes, subscribe without filters:
+
+```typescript
+const allEvents = await client.event.subscribe();
+// You'll get events from ALL sessions
+```
+
+Or filter by specific sessions:
+
+```typescript
+const session1Events = await client.event.subscribe({
+  query: { sessionID: 'session-1,session-2' }
+});
+```
+
+---
+
+## Summary
+
+**Events enable real-time, reactive applications**:
+- Subscribe with `client.event.subscribe()`
+- Use async iteration: `for await (const event of stream)`
+- Filter by `eventType` and `sessionID`
+- Handle `error` events gracefully
+- Implement reconnection for resilience
+- Use for logging, notifications, progress, analytics
+
+**Common use cases**:
+- Live progress bars in CI/CD integrations
+- Audit trails for compliance
+- Multi-user collaborative editing
+- Integration with external monitoring systems
+- Building custom UIs that reflect OpenCode state
+
+**Next**: Combine events with [sessions](#sessions-deep-dive) and [tools](#tools-deep-dive) to build rich, interactive OpenCode applications!
+
+---
+
+## Files Deep Dive
+
+File operations are fundamental to OpenCode. The AI uses file search, reading, and modification tools to understand and change your codebase. As an SDK user, you'll use the `client.find` and `client.file` APIs to programmatically explore and manipulate files.
+
+### Understanding File Operations
+
+OpenCode provides **five core file operations**:
+
+| Operation | SDK API | Purpose | Example |
+|-----------|---------|---------|---------|
+| **find.text** | `client.find.text()` | Search file contents | Find all TODOs |
+| **find.files** | `client.find.files()` | Find files by name | Locate all .ts files |
+| **file.list** | `client.file.list()` | List directory contents | Browse src/components |
+| **file.read** | `client.file.read()` | Read file content | View source code |
+| **file.status** | `client.file.status()` | Get git status | Check which files changed |
+
+These are exposed as **built-in tools** (`grep`, `glob`, `list`, `read`) that the AI can use automatically, and as **SDK methods** that you can call directly.
+
+---
+
+## SDK File API Overview
+
+### Namespace Structure
+
+```typescript
+// Search operations
+client.find.text({ query: { pattern: "..." } })
+client.find.files({ query: { query: "..." } })
+client.find.symbols({ query: { query: "..." } })
+
+// File operations
+client.file.read({ query: { path: "..." } })
+client.file.list({ query: { path: "..." } })
+client.file.status({ query: { /* ... */ } })
+```
+
+### Common Response Structure
+
+```typescript
+// find.text returns array of matches
+interface TextSearchResult {
+  path: string;              // File path
+  line_number: number;       // Line number (1-indexed)
+  lines: {
+    text: string;            // Full line text
+    absolute_offset: number; // Byte offset from start
+  };
+  submatches: Array<{        // Regex capture groups
+    match: string;
+    start: number;
+    end: number;
+  }>;
+}
+
+// find.files returns array of paths
+type FileSearchResult = string[];
+
+// file.read returns content
+interface FileReadResult {
+  type: "raw" | "patch";
+  content: string;
+}
+
+// file.list returns directory entries
+interface FileNode {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: FileNode[];     // If recursively listed
+}
+```
+
+---
+
+## Searching Text (grep)
+
+The `client.find.text()` method searches file contents using regular expressions (backed by ripgrep).
+
+### Basic Text Search
+
+```typescript
+// Find all occurrences of "TODO"
+const todos = await client.find.text({
+  query: { pattern: "TODO" }
+});
+
+todos.data.forEach(match => {
+  console.log(`${match.path}:${match.line_number}: ${match.lines.text}`);
+});
+```
+
+Output:
+```
+src/utils/helpers.ts:15: // TODO: implement caching
+src/components/Button.tsx:42: // TODO: add error handling
+```
+
+---
+
+### Advanced Regex Patterns
+
+```typescript
+// 1. Find function declarations
+const functions = await client.find.text({
+  query: { pattern: "function\\s+\\w+\\s*\\(" }
+});
+
+// 2. Find import statements
+const imports = await client.find.text({
+  query: { pattern: "^import\\s+.*from\\s+['\"']" }
+});
+
+// 3. Find console.log statements
+const consoleLogs = await client.find.text({
+  query: { pattern: "console\\.log\\s*\\(" }
+});
+
+// 4. Find React hooks
+const hooks = await client.find.text({
+  query: { pattern: "use[A-Z][a-zA-Z0-9]*\\s*\\(" }
+});
+
+// 5. Find class definitions
+const classes = await client.find.text({
+  query: { pattern: "class\\s+\\w+" }
+});
+
+// 6. Find error handling
+const tryCatch = await client.find.text({
+  query: { pattern: "try\\s*\\{" }
+});
+
+// 7. Use capture groups - find all API endpoint strings
+const endpoints = await client.find.text({
+  query: { pattern: "['\"]/api/[a-zA-Z/]+['\"]" }
+});
+endpoints.data.forEach(m => {
+  const endpoint = m.submatches[0]?.match || m.lines.text;
+  console.log(`API endpoint found: ${endpoint}`);
+});
+
+// 8. Multi-line patterns (using (?s) flag for dotall mode)
+const multiLine = await client.find.text({
+  query: { pattern: "(?s)description:\\s*\"\"\".*?\"\"\"" }
+});
+```
+
+---
+
+### Filtering by File Type
+
+The SDK supports additional filters to narrow search scope:
+
+```typescript
+// Search only in TypeScript files
+const tsOnly = await client.find.text({
+  query: {
+    pattern: "interface\\s+\\w+",
+    // Optional filter parameters:
+    glob: "**/*.ts",        // Only .ts files
+    // type: "file"         // Only files (not needed, default)
+  }
+});
+
+// Search in specific directory
+const inFolder = await client.find.text({
+  query: {
+    pattern: "useState",
+    directory: "src/components"  // Override search root
+  }
+});
+
+// Limit results (default is typically 100)
+const limited = await client.find.text({
+  query: {
+    pattern: "FIXME",
+    limit: 10  // Return at most 10 matches
+  }
+});
+
+// Case-insensitive search (using regex flag)
+const caseInsensitive = await client.find.text({
+  query: {
+    // (?i) flag makes pattern case-insensitive
+    pattern: "(?i)password|secret|token"
+  }
+});
+```
+
+**Important**: The `glob`, `directory`, `limit` parameters are **not** part of the pattern but are separate query parameters in some SDK implementations. Check your SDK version's exact API - some use separate fields:
+
+```typescript
+// Some SDK versions use this format:
+await client.find.text({
+  query: { pattern: "..." },
+  glob: "**/*.ts",        // Separate field
+  limit: 100              // Separate field
+});
+```
+
+---
+
+### Performance Optimization
+
+Large codebases can have thousands of matches. Optimize searches:
+
+```typescript
+// 1. Be as specific as possible
+const bad = await client.find.text({ query: { pattern: "\\w+" } });  // Too broad!
+const good = await client.find.text({ 
+  query: { pattern: "TODO|FIXME|XXX" }  // Specific markers
+});
+
+// 2. Use appropriate regex - avoid backtracking catastrophes
+const dangerous = await client.find.text({
+  query: { pattern: "(a+)+b" }  // Can be extremely slow on certain inputs!
+});
+const safe = await client.find.text({
+  query: { pattern: "a+b" }  // Linear time
+});
+
+// 3. Filter by file type first, then search within those files
+const tsConfigs = await client.find.files({
+  query: { query: "**/tsconfig.json", type: "file", limit: 50 }
+});
+// Then read and search those specific files if needed
+
+// 4. Search in specific directories instead of entire project
+const srcOnly = await client.find.text({
+  query: {
+    pattern: "React\\.FC<",
+    directory: "src"  // Only search in src/
+  }
+});
+
+// 5. Exclude known large/irrelevant directories using .ignore file
+// Create a .opencode/.ignore file:
+/*
+  node_modules/
+  dist/
+  build/
+  .git/
+  coverage/
+*/
+
+// 6. Paginate through results if SDK supports it
+let allResults: TextSearchResult[] = [];
+let offset = 0;
+const pageSize = 100;
+
+while (true) {
+  const page = await client.find.text({
+    query: { pattern: "import", limit: pageSize, offset }
+  });
+  
+  if (page.data.length === 0) break;
+  
+  allResults.push(...page.data);
+  offset += pageSize;
+  
+  // Optional: break early if you found what you need
+  if (page.data.some(m => m.path.includes("critical"))) {
+    break;
+  }
+}
+
+console.log(`Found ${allResults.length} total matches`);
+
+// 7. Cache results for repeated searches
+const searchCache = new Map<string, TextSearchResult[]>();
+
+async function cachedSearch(pattern: string): Promise<TextSearchResult[]> {
+  if (!searchCache.has(pattern)) {
+    const results = await client.find.text({ query: { pattern } });
+    searchCache.set(pattern, results.data);
+  }
+  return searchCache.get(pattern)!;
+}
+```
+
+---
+
+## Finding Files (glob)
+
+Search for files and directories by name using glob patterns.
+
+### Glob Pattern Basics
+
+Glob patterns use wildcards:
+
+| Pattern | Matches | Example |
+|---------|---------|---------|
+| `*` | Any characters except `/` | `*.ts` (all .ts files) |
+| `?` | Single character | `?.js` (a.js, b.js) |
+| `**` | Any number of directories | `**/*.test.ts` (any test file) |
+| `{a,b}` | Either pattern | `*.{ts,tsx,js}` |
+| `[abc]` | Character class | `file[123].txt` |
+| `[!abc]` | Negated character class | `file[!1].txt` |
+
+---
+
+### Common Patterns
+
+```typescript
+// Find all TypeScript files
+const allTs = await client.find.files({
+  query: { query: "**/*.ts", type: "file" }
+});
+
+// Find all React components (.tsx, .jsx)
+const reactFiles = await client.find.files({
+  query: { query: "**/*.{tsx,jsx}", type: "file" }
+});
+
+// Find test files (any extension)
+const testFiles = await client.find.files({
+  query: { query: "**/*.test.{ts,js,tsx,jsx}", type: "file" }
+});
+
+// Find configuration files
+const configFiles = await client.find.files({
+  query: { query: "**/*config.{js,ts,json,yaml,yml}", type: "file" }
+});
+
+// Find all Markdown documentation
+const docs = await client.find.files({
+  query: { query: "**/*.md", type: "file" }
+});
+
+// Find directories named "src"
+const srcDirs = await client.find.files({
+  query: { query: "**/src", type: "directory" }
+});
+
+// Find package.json files
+const packages = await client.find.files({
+  query: { query: "**/package.json", type: "file" }
+});
+
+// Find files starting with "test"
+const testPrefixed = await client.find.files({
+  query: { query: "**/test*", type: "file" }
+});
+
+// Find files with exactly one character before extension
+const oneChar = await client.find.files({
+  query: { query: "**/?.{js,ts}", type: "file" }
+});
+
+// Exclude patterns (use negative lookahead in glob)
+// Note: Glob doesn't support !, so use client-side filtering
+const allFiles = await client.find.files({
+  query: { query: "**/*", type: "file" }
+});
+const notNodeModules = allFiles.data.filter(f => !f.includes("node_modules"));
+```
+
+---
+
+### Combining with Filters
+
+```typescript
+// Find files in specific directory
+const inSrc = await client.find.files({
+  query: {
+    query: "**/*.ts",
+    directory: "src",  // Search relative to src/
+    type: "file"
+  }
+});
+
+// Limit depth
+const shallow = await client.find.files({
+  query: {
+    // Only one level deep (no **)
+    query: "src/*.ts",
+    type: "file"
+  }
+});
+
+// Find both files AND directories
+const everything = await client.find.files({
+  query: { query: "**/components", type: undefined }  // Both
+});
+
+// Use .gitignore by default (ripgrep respects it)
+// To include ignored files, use .ignore file (see tools section)
+
+// Sort by modification time (already sorted by ripgrep)
+const sorted = await client.find.files({
+  query: {
+    query: "**/*.ts",
+    type: "file",
+    limit: 50  // Get most recently modified 50 files
+  }
+});
+// Results are sorted by mtime (most recent first)
+```
+
+---
+
+## Listing Directories (list)
+
+List contents of a directory (like `ls` or `dir`).
+
+### Basic Directory Listing
+
+```typescript
+// List project root
+const root = await client.file.list({
+  query: { path: "." }
+});
+root.data.forEach(entry => {
+  console.log(`${entry.type === 'directory' ? '📁' : '📄'} ${entry.name}`);
+});
+
+// List specific directory
+const src = await client.file.list({
+  query: { path: "src" }
+});
+
+// List with pattern filter
+const tsFiles = await client.file.list({
+  query: {
+    path: "src",
+    pattern: "*.ts"  // Only .ts files
+  }
+});
+```
+
+---
+
+### Recursive Listings
+
+```typescript
+// Recursive listing (all subdirectories)
+const all = await client.file.list({
+  query: {
+    path: "src",
+    // No pattern - get everything
+  }
+});
+
+// Format recursively
+function printTree(nodes: FileNode[], indent = 0) {
+  nodes.forEach(node => {
+    const icon = node.type === 'directory' ? '📁' : '📄';
+    const prefix = '  '.repeat(indent);
+    console.log(`${prefix}${icon} ${node.name}`);
+    
+    if (node.children) {
+      printTree(node.children, indent + 1);
+    }
+  });
+}
+
+printTree(all.data);
+```
+
+Output:
+```
+📁 src
+  📁 components
+    📄 Button.tsx
+    📄 Modal.tsx
+  📁 utils
+    📄 helpers.ts
+    📄 api.ts
+📁 tests
+📄 package.json
+📄 README.md
+```
+
+---
+
+### Filtering Results
+
+```typescript
+// Filter for files only (exclude directories)
+const filesOnly = (await client.file.list({
+  query: { path: "." }
+})).data.filter(entry => entry.type === 'file');
+
+// Filter by extension
+const jsFiles = (await client.file.list({
+  query: { path: ".", pattern: "*.js" }
+})).data;
+
+// Find directories
+const dirs = (await client.file.list({
+  query: { path: ".", pattern: "*" }
+})).data.filter(entry => entry.type === 'directory');
+
+// Count file types
+const entries = await client.file.list({ query: { path: "src" } });
+const counts: Record<string, number> = {};
+entries.data.forEach(entry => {
+  const ext = entry.name.split('.').pop() || 'noext';
+  counts[ext] = (counts[ext] || 0) + 1;
+});
+console.log('File type distribution:', counts);
+```
+
+---
+
+## Reading Files (read)
+
+Read file contents for analysis, display, or processing.
+
+### Complete File Read
+
+```typescript
+// Read entire file as string
+const pkg = await client.file.read({
+  query: { path: "package.json" }
+});
+console.log(pkg.data.content);
+
+// Parse as JSON
+const pkgJson = JSON.parse(pkg.data.content);
+console.log("Project name:", pkgJson.name);
+console.log("Version:", pkgJson.version);
+console.log("Dependencies:", Object.keys(pkgJson.dependencies || {}));
+```
+
+---
+
+### Partial Reads (Line Ranges)
+
+Large files can be partially read using line ranges:
+
+```typescript
+// Read lines 1-10 (first page)
+const firstPage = await client.file.read({
+  query: {
+    path: "src/huge-file.ts",
+    // Some SDKs support:
+    // startLine: 1,
+    // endLine: 10
+  }
+});
+
+// Read specific section (e.g., line 100-150)
+const middle = await client.file.read({
+  query: {
+    path: "src/index.ts",
+    // offset: 100,   // Start at byte offset
+    // limit: 50       // Read 50 lines
+  }
+});
+
+// Read last N lines
+// Implementation: first get file length, then read from end
+const full = await client.file.read({ query: { path: "logs/app.log" } });
+const lines = full.data.content.split('\n');
+const last50 = lines.slice(-50).join('\n');
+console.log("Recent log entries:\n", last50);
+```
+
+**Note**: Partial read support depends on SDK implementation. Check your SDK's API - some may use `offset` and `limit` parameters instead of line numbers.
+
+---
+
+### Handling Different Encodings
+
+By default, files are read as UTF-8. For other encodings:
+
+```typescript
+// Most SDKs assume UTF-8
+// If you need binary data or other encodings, check SDK options:
+
+const binary = await client.file.read({
+  query: {
+    path: "image.png",
+    // encoding: "base64"  // Some SDKs support this
+  }
+});
+// binary.data.content would be base64 string
+
+// For UTF-16 or other encodings, you may need to convert:
+const raw = await client.file.read({ query: { path: "file.txt" } });
+const buffer = Buffer.from(raw.data.content, 'utf8');  // Convert if needed
+```
+
+---
+
+## File Status & Git Integration
+
+Check which files have changed (git status):
+
+```typescript
+// Get git status for all tracked files
+const status = await client.file.status({
+  query: {}  // No filter - all files
+});
+
+status.data.forEach(file => {
+  const statusIcon = {
+    'M': '✏️Modified',
+    'A': '➕Added',
+    'D': '🗑️Deleted',
+    'R': '🔄Renamed',
+    'C': '📋Copied',
+    'U': '⚠️Unmerged',
+    '?': '❓Untracked'
+  }[file.status] || '';
+
+  console.log(`${statusIcon} ${file.path}`);
+  if (file.oldPath) {
+    console.log(`   → renamed from: ${file.oldPath}`);
+  }
+});
+
+// Filter by status
+const modifiedOnly = status.data.filter(f => f.status === 'M');
+const untracked = status.data.filter(f => f.status === '?');
+
+// Check if there are uncommitted changes
+const hasChanges = status.data.some(f => f.status !== '');
+if (hasChanges) {
+  console.log("⚠️ You have uncommitted changes!");
+}
+
+// Get staged vs unstaged (if SDK provides this)
+const staged = status.data.filter(f => f.staged);
+const unstaged = status.data.filter(f => !f.staged);
+```
+
+---
+
+## Symbol Search
+
+Find **workspace symbols** - functions, classes, variables, etc. across your entire codebase:
+
+```typescript
+// Search for a symbol by name (fuzzy match)
+const symbols = await client.find.symbols({
+  query: { query: "useState" }
+});
+
+symbols.data.forEach(symbol => {
+  console.log(`${symbol.kind}: ${symbol.name}`);
+  console.log(`  Location: ${symbol.path}:${symbol.range.start.line}`);
+  console.log(`  Type: ${symbol.type}`);
+});
+
+// Example output:
+// Function: useState
+//   Location: src/hooks/useCustomState.ts:15
+//   Type: () => [any, Function]
+// Function: useUserState
+//   Location: src/features/user/hooks.ts:8
+//   Type: () => [User | null, Function]
+```
+
+**Symbol kinds** you might see:
+- `function` - Function definitions
+- `class` - Class definitions
+- `interface` - TypeScript interfaces
+- `type` - Type aliases
+- `variable` - Variables/constants
+- `method` - Class methods
+- `property` - Object properties
+- `enum` - Enumerations
+- `namespace` - Namespaces/modules
+
+---
+
+## Working with File Paths
+
+### Absolute vs Relative Paths
+
+```typescript
+// Read with absolute path
+const absolute = await client.file.read({
+  query: { path: "/home/user/project/src/index.ts" }
+});
+
+// Read with relative path (relative to project root)
+const relative = await client.file.read({
+  query: { path: "src/index.ts" }
+});
+
+// Get current project root
+const project = await client.project.current();
+console.log("Project root:", project.data.root);
+
+// Construct paths relative to project root
+const someFile = path.join(project.data.root, "src", "utils.ts");
+```
+
+### Normalizing Paths
+
+```typescript
+import path from 'path';
+
+// Resolve to absolute
+const resolved = path.resolve("src/utils");  // /abs/path/to/src/utils
+
+// Get directory name
+const dir = path.dirname("src/components/Button.tsx");  // "src/components"
+
+// Get extension
+const ext = path.extname("file.ts");  // ".ts"
+
+// Get basename
+const base = path.basename("src/components/Button.tsx");  // "Button.tsx"
+
+// Join paths
+const fullPath = path.join("src", "components", "Button.tsx");  // "src/components/Button.tsx"
+```
+
+---
+
+## File Operation Patterns
+
+### Pattern 1: Find All References
+
+Find where a function/variable is used:
+
+```typescript
+async function findReferences(symbolName: string): Promise<{path: string, line: number}[]> {
+  // Search for exact word boundaries
+  const pattern = `\\b${symbolName}\\b`;
+  const results = await client.find.text({
+    query: { 
+      pattern,
+      // Exclude definition line if already known
+    }
+  });
+  
+  return results.data.map(r => ({
+    path: r.path,
+    line: r.line_number,
+    context: r.lines.text.trim()
+  }));
+}
+
+// Usage
+const refs = await findReferences("renderUserList");
+console.log(`Found ${refs.length} references`);
+refs.forEach(r => console.log(`${r.path}:${r.line} - ${r.context}`));
+```
+
+---
+
+### Pattern 2: File Content Analysis
+
+Calculate code metrics:
+
+```typescript
+async function analyzeCodebase() {
+  const files = await client.find.files({
+    query: { query: "**/*.{ts,tsx,js,jsx}", type: "file" }
+  });
+  
+  let totalLines = 0;
+  let totalFiles = 0;
+  const byExtension: Record<string, {files: number, lines: number}> = {};
+  
+  for (const filePath of files.data) {
+    try {
+      const content = await client.file.read({ query: { path: filePath } });
+      const lines = content.data.content.split('\n').length;
+      const ext = filePath.split('.').pop() || 'unknown';
+      
+      totalLines += lines;
+      totalFiles++;
+      
+      if (!byExtension[ext]) {
+        byExtension[ext] = { files: 0, lines: 0 };
+      }
+      byExtension[ext].files++;
+      byExtension[ext].lines += lines;
+    } catch (error) {
+      console.warn(`Could not read ${filePath}:`, error);
+    }
+  }
+  
+  console.log(`📊 Codebase Analysis:`);
+  console.log(`   Total files: ${totalFiles}`);
+  console.log(`   Total lines: ${totalLines}`);
+  console.log(`   By extension:`);
+  Object.entries(byExtension).forEach(([ext, stats]) => {
+    console.log(`     .${ext}: ${stats.files} files, ${stats.lines} lines`);
+  });
+}
+
+await analyzeCodebase();
+```
+
+---
+
+### Pattern 3: Duplicate Code Detection
+
+Find similar code blocks:
+
+```typescript
+async function findDuplicateFunctions() {
+  // Step 1: Find all function declarations
+  const funcMatches = await client.find.text({
+    query: { pattern: "function\\s+(\\w+)\\s*\\(" }
+  });
+  
+  // Step 2: Group by function name
+  const functionsBySize = new Map<string, Array<{path: string, line: number, content: string}>>();
+  
+  for (const match of funcMatches.data) {
+    const funcName = match.submatches[0]?.match || "unknown";
+    
+    // Read the function body (simplified - read entire file and extract)
+    const file = await client.file.read({ query: { path: match.path } });
+    const lines = file.data.content.split('\n');
+    const funcLines = lines.slice(match.line_number - 1, match.line_number + 20).join('\n');
+    
+    if (!functionsBySize.has(funcName)) {
+      functionsBySize.set(funcName, []);
+    }
+    functionsBySize.get(funcName)!.push({
+      path: match.path,
+      line: match.line_number,
+      content: funcLines
+    });
+  }
+  
+  // Step 3: Find functions with multiple implementations
+  for (const [name, occurrences] of functionsBySize.entries()) {
+    if (occurrences.length > 1) {
+      console.log(`⚠️ Duplicate function: ${name} (${occurrences.length} times)`);
+      occurrences.forEach(o => {
+        console.log(`   ${o.path}:${o.line}`);
+      });
+    }
+  }
+}
+
+await findDuplicateFunctions();
+```
+
+---
+
+### Pattern 4: Dependency Analysis
+
+Find all imports/external dependencies:
+
+```typescript
+async function analyzeDependencies() {
+  const importMatches = await client.find.text({
+    query: { pattern: "^import\\s+.*from\\s+['\"']([^'\"]+)['\"']" }
+  });
+  
+  const dependencies = new Set<string>();
+  
+  importMatches.data.forEach(match => {
+    const module = match.submatches[0]?.match || '';
+    if (module && !module.startsWith('.') && !module.startsWith('/')) {
+      // External package (not relative import)
+      const pkg = module.split('/')[0].split('@')[0];
+      dependencies.add(pkg);
+    }
+  });
+  
+  console.log('📦 External dependencies used:');
+  Array.from(dependencies).sort().forEach(dep => {
+    console.log(`  - ${dep}`);
+  });
+  
+  return Array.from(dependencies);
+}
+
+const deps = await analyzeDependencies();
+```
+
+---
+
+### Pattern 5: Codebase Search with Context
+
+Search and display surrounding context:
+
+```typescript
+async function searchWithContext(pattern: string, contextLines = 2) {
+  const results = await client.find.text({
+    query: { pattern, limit: 20 }
+  });
+  
+  for (const match of results.data) {
+    // Read the file to get context
+    const file = await client.file.read({ query: { path: match.path } });
+    const allLines = file.data.content.split('\n');
+    
+    const start = Math.max(0, match.line_number - 1 - contextLines);
+    const end = Math.min(allLines.length, match.line_number + contextLines);
+    
+    console.log(`\n📄 ${match.path}:${match.line_number}`);
+    console.log('─'.repeat(50));
+    
+    for (let i = start; i < end; i++) {
+      const lineNum = i + 1;
+      const prefix = lineNum === match.line_number ? '>>>' : '   ';
+      console.log(`${prefix} ${lineNum.toString().padStart(4)}: ${allLines[i]}`);
+    }
+  }
+}
+
+// Usage
+await searchWithContext("useEffect", 3);
+```
+
+Output:
+```
+📄 src/components/App.tsx:42
+---------------------------------------------------
+   39:   const [count, setCount] = useState(0);
+>>> 42:   useEffect(() => {
+   43:     console.log('Effect ran');
+   44:   }, []);
+   45:
+```
+
+---
+
+## Security Considerations
+
+### Path Traversal Prevention
+
+Never trust user-provided paths:
+
+```typescript
+function sanitizePath(userInput: string): string {
+  // Remove any .. sequences
+  const cleaned = userInput.replace(/\.\./g, '');
+  // Remove leading slashes
+  const relative = cleaned.replace(/^\//, '');
+  return relative;
+}
+
+// Use
+const userPath = sanitizePath("../../../etc/passwd");
+await client.file.read({ query: { path: userPath } });
+```
+
+### Avoid Reading Sensitive Files
+
+```typescript
+const sensitivePatterns = [
+  /\.env$/,
+  /config\.(json|yaml|yml)$/,
+  /secret/i,
+  /credential/i,
+  /password\./i,
+  /key\./i
+];
+
+async function safeRead(path: string): Promise<string | null> {
+  if (sensitivePatterns.some(pattern => pattern.test(path))) {
+    console.warn(`Blocked reading potentially sensitive file: ${path}`);
+    return null;
+  }
+  
+  const result = await client.file.read({ query: { path } });
+  return result.data.content;
+}
+```
+
+### Limit Search Scope
+
+Don't let users search entire filesystem:
+
+```typescript
+const ALLOWED_DIRS = ['src', 'lib', 'app', 'components'];
+
+function isPathAllowed(path: string): boolean {
+  return ALLOWED_DIRS.some(dir => path.startsWith(dir + '/') || path === dir);
+}
+
+// Validate before operations
+if (!isPathAllowed(userPath)) {
+  throw new Error(`Access to ${userPath} is not allowed`);
+}
+```
+
+---
+
+## Performance Tips
+
+### 1. Batch Operations
+
+When processing many files, don't make thousands of sequential calls:
+
+```typescript
+// BAD: One at a time (slow)
+for (const file of files) {
+  const content = await client.file.read({ query: { path: file } });
+  // process...
+}
+
+// GOOD: Use Promise.all for independent reads
+const promises = files.map(f => client.file.read({ query: { path: f } }));
+const results = await Promise.all(promises);
+
+// Note: Too many at once can overwhelm server. Chunk if needed:
+async function batchFetch<T>(
+  items: T[],
+  fn: (item: T) => Promise<any>,
+  batchSize = 10
+) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+```
+
+### 2. Cache Results
+
+```typescript
+const fileCache = new Map<string, FileReadResult>();
+
+async function getFileCached(path: string): Promise<string> {
+  if (!fileCache.has(path)) {
+    const result = await client.file.read({ query: { path } });
+    fileCache.set(path, result);
+  }
+  return fileCache.get(path)!.data.content;
+}
+```
+
+### 3. Filter Early
+
+Filter using the most restrictive criteria first:
+
+```typescript
+// BAD: Read all files then filter
+const allFiles = await client.find.files({ query: { query: "**/*" } });
+const tsFiles = allFiles.data.filter(f => f.endsWith('.ts'));
+
+// GOOD: Use glob to only get .ts files
+const tsFiles = await client.find.files({
+  query: { query: "**/*.ts", type: "file" }
+});
+
+// Even better: narrow directory
+const srcTsFiles = await client.find.files({
+  query: { query: "src/**/*.ts", type: "file" }
+});
+```
+
+### 4. Avoid Repeated Status Checks
+
+```typescript
+// BAD: Check status repeatedly
+for (const file of files) {
+  const status = await client.file.status({ query: { path: file } });
+  // ...
+}
+
+// GOOD: Get all status once
+const allStatus = await client.file.status({ query: {} });
+const statusMap = new Map(allStatus.data.map(s => [s.path, s]));
+// Then lookup for each file
+```
+
+---
+
+## Troubleshooting File Operations
+
+### Problem: "File not found" errors
+
+**Solution**:
+- Check file path is correct (relative to project root)
+- Verify file exists with `client.find.files()` first
+- Check permissions (file might be in .gitignore and excluded)
+- Ensure you're in the right project directory
+
+```typescript
+// Verify file exists
+const exists = (await client.find.files({
+  query: { query: path, type: "file" }
+})).data.includes(path);
+
+if (!exists) {
+  console.error(`File not found: ${path}`);
+  // List directory to debug
+  const dir = path.substring(0, path.lastIndexOf('/'));
+  const listing = await client.file.list({ query: { path: dir } });
+  console.log(`Contents of ${dir}:`, listing.data.map(e => e.name));
+}
+```
+
+---
+
+### Problem: Search returns no results
+
+**Solution**:
+- Verify pattern syntax (use regex101.com to test)
+- Check if files are excluded by .gitignore or .ignore
+- Try broader pattern first
+- Test with `client.file.list()` to confirm files exist
+
+```typescript
+// Debug: What files are actually searchable?
+const allFiles = await client.find.files({ query: { query: "**/*", type: "file", limit: 100 } });
+console.log(`Found ${allFiles.data.length} files to search`);
+
+// Test simple pattern
+const test = await client.find.text({ query: { pattern: "the" } });
+console.log(`'the' appears ${test.data.length} times`);
+```
+
+---
+
+### Problem: Slow searches
+
+**Solution**:
+- Add more specific patterns
+- Use `directory` to limit scope
+- Add `limit` to stop after finding enough
+- Use .ignore to exclude large directories
+
+---
+
+### Problem: Out of memory with large files
+
+**Solution**:
+- Use partial reads (read specific sections)
+- Stream processing for large results
+- Increase Node.js memory limit if needed
+
+```bash
+node --max-old-space-size=4096 your-script.js
+```
+
+---
+
+### Problem: Encoding errors (garbled text)
+
+**Solution**:
+- Files might be in non-UTF-8 encoding
+- Check for BOM (Byte Order Mark)
+- Use encoding-aware reading if SDK supports it
+
+```typescript
+// Detect BOM
+const content = await client.file.read({ query: { path: file } });
+if (content.data.charCodeAt(0) === 0xFEFF) {
+  console.log('File has UTF-16 BOM');
+}
+```
+
+---
+
+## Common Questions
+
+### Q: How is `find.text()` different from `find.files()`?
+
+**Answer**:
+- `find.text()`: Searches **inside** files for text matching a regex pattern. Returns line-by-line matches with context.
+- `find.files()`: Searches for **file/directory names** using glob patterns. Returns paths only.
+
+Use `find.text()` when you want to find **content** (e.g., all TODOs). Use `find.files()` when you want to find **files by name** (e.g., all .test.ts files).
+
+---
+
+### Q: Can I search binary files?
+
+**Answer**: By default, ripgrep skips binary files. Some SDKs may have a `binary: true` option to include them, but results will be limited (binary data may not match text patterns well). For binary files, use specialized tools or base64 decode first.
+
+---
+
+### Q: How do I exclude directories like node_modules?
+
+**Answer**: OpenCode respects `.gitignore` by default. `node_modules/` is typically in `.gitignore` and will be excluded. To include it, create a `.opencode/.ignore` file with:
+```
+!node_modules/
+```
+
+Or use the glob pattern to explicitly restrict:
+```typescript
+await client.find.files({ query: { query: "src/**/*.ts", type: "file" } });
+```
+
+---
+
+### Q: What's the maximum file size that can be read?
+
+**Answer**: There's no hard limit, but very large files (>100MB) may:
+- Consume significant memory
+- Slow down the server
+- Time out
+
+For large files, use line range parameters if available, or read in chunks if your SDK supports partial reads.
+
+---
+
+### Q: Can I get file modification time?
+
+**Answer**: The basic `file.read()` doesn't include metadata. Use `find.files()` which returns paths, then check file stats separately, or look for SDK extensions that include metadata:
+
+```typescript
+const files = await client.find.files({ query: { query: "**/*.ts", type: "file" } });
+// Paths only - no mtime in current SDK
+
+// Alternative: Use shell command
+const stat = await client.session.shell({
+  path: { id: sessionId },
+  body: { command: `stat -c %y ${filePath}` }
+});
+```
+
+---
+
+### Q: How do I search only modified/untracked files?
+
+**Answer**: Combine `file.status()` with search:
+
+```typescript
+// Get modified files
+const status = await client.file.status({ query: {} });
+const modifiedFiles = status.data
+  .filter(f => f.status === 'M' || f.status === '?')
+  .map(f => f.path);
+
+// Search only in modified files
+const modifiedResults: TextSearchResult[] = [];
+for (const file of modifiedFiles) {
+  const search = await client.find.text({
+    query: { pattern: "TODO", directory: file }
+  });
+  modifiedResults.push(...search.data);
+}
+```
+
+---
+
+### Q: Can I search in specific file types only?
+
+**Answer**: Yes, use `glob` parameter or filter by extension:
+
+```typescript
+// Method 1: Use directory parameter to narrow scope
+const tsResults = await client.find.text({
+  query: {
+    pattern: "interface",
+    directory: "src"  // Only in src/
+  }
+});
+
+// Method 2: Use file.find.files() to get .ts files first, then search each
+const tsFiles = await client.find.files({
+  query: { query: "**/*.ts", type: "file" }
+});
+
+// Then read and search those files individually if needed
+```
+
+---
+
+### Q: Is there a way to cancel a long-running search?
+
+**Answer**: Most SDKs don't support cancellation of individual file operations. However, you can:
+- Use a timeout on the entire SDK client
+- Set per-operation timeout if SDK supports it
+- Use AbortSignal:
+
+```typescript
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+try {
+  const results = await client.find.text({
+    query: { pattern: "..." },
+    signal: controller.signal
+  });
+} catch (error) {
+  if (error.name === 'AbortError') {
+    console.log('Search timed out');
+  }
+}
+```
+
+---
+
+### Q: How do I handle files with spaces or special characters in path?
+
+**Answer**: SDKs handle paths as strings. Use proper encoding:
+
+```typescript
+const weirdPath = "src/files with spaces/weird-name (1).ts";
+const result = await client.file.read({ query: { path: weirdPath } });
+// Works fine - path is just a string
+```
+
+Be careful when constructing paths - use `path.join()` instead of string concatenation.
+
+---
+
+### Q: Can I get line counts or character counts?
+
+**Answer**: Read the file and compute:
+
+```typescript
+const file = await client.file.read({ query: { path: "src/index.ts" } });
+const content = file.data.content;
+const lines = content.split('\n').length;
+const chars = content.length;
+const bytes = Buffer.byteLength(content, 'utf8');
+console.log(`Lines: ${lines}, Chars: ${chars}, Bytes: ${bytes}`);
+```
+
+---
+
+### Q: What's the difference between `list` and `find.files()`?
+
+**Answer**:
+- `list`: Lists directory contents (like `ls`). Can be recursive. Returns `FileNode[]` with `name`, `path`, `type`.
+- `find.files()`: Finds files by name pattern using glob. Returns string[] of paths.
+
+Use `list` when exploring a specific directory. Use `find.files()` when looking for files matching a pattern anywhere in the project.
+
+---
+
+## Summary
+
+**File operations are the foundation of codebase exploration**:
+
+- **Search text**: `client.find.text()` - grep for content
+- **Find files**: `client.find.files()` - glob for filenames  
+- **List dirs**: `client.file.list()` - browse directories
+- **Read files**: `client.file.read()` - get file contents
+- **Check status**: `client.file.status()` - git status
+- **Find symbols**: `client.find.symbols()` - locate functions/classes
+
+**Best practices**:
+- ✅ Filter early and often
+- ✅ Use specific patterns
+- ✅ Cache results for repeated access
+- ✅ Batch operations with `Promise.all`
+- ✅ Handle encoding and large files
+- ✅ Validate and sanitize paths
+- ✅ Use .ignore to exclude irrelevant directories
+
+**Common use cases**:
+- Code analysis and metrics
+- Refactoring (find all usages)
+- Documentation generation
+- Duplicate code detection
+- Security scanning (find secrets)
+- Dependency mapping
+
+Combine file operations with [sessions](#sessions-deep-dive) and [tools](#tools-deep-dive) for powerful AI-assisted coding!
+
+---
+
+## Agents Deep Dive
+
+Agents are specialized AI assistants that define **how OpenCode thinks and acts**. They're like different "personalities" or "roles" you can assign to the AI, each with their own instructions, allowed tools, and working styles.
+
+### What Are Agents?
+
+An **agent** is a configured instance of an LLM with:
+- **Specific instructions** (system prompt)
+- **Defined capabilities** (which tools it can use)
+- **Behavioral constraints** (permissions, limits)
+- **Optional specializations** (security reviewer, documentation writer, etc.)
+
+Think of agents like **job roles** in a company:
+- **Build Agent** - The general developer who does everything
+- **Plan Agent** - The architect who designs but doesn't build
+- **Explore Agent** - The researcher who investigates but doesn't modify
+- **Custom Agent** - Your specialized role (code reviewer, security auditor, etc.)
+
+---
+
+### Why Use Agents?
+
+✅ **Specialization** - Different tasks need different mindsets  
+✅ **Safety** - Restrict dangerous operations for planning/analysis  
+✅ **Cost Control** - Use cheaper models for simple tasks  
+✅ **Quality** - Tailor prompts and tools for optimal results  
+✅ **Parallel Work** - Multiple agents can work on different aspects  
+✅ **Delegation** - Primary agents can spawn specialized subagents  
+
+---
+
+## Agent Architecture
+
+OpenCode has a **hierarchical agent system**:
+
+```
+┌─────────────────────────────────────────────┐
+│         PRIMARY AGENTS (User-facing)        │
+│  • Build  • Plan  • Your Custom Agents     │
+│  (Switch with Tab key)                      │
+└───────────────┬─────────────────────────────┘
+                │ Can spawn
+                ▼
+┌─────────────────────────────────────────────┐
+│           SUBAGENTS (Specialized)           │
+│  • General  • Explore  • Your Custom       │
+│  (Invoke with @mention or automatically)   │
+└─────────────────────────────────────────────┘
+```
+
+### Primary vs Subagents
+
+| Aspect | Primary Agents | Subagents |
+|--------|---------------|-----------|
+| **How to use** | Tab key to switch | @mention or auto-spawned |
+| **Visibility** | Always visible | Autocomplete menu |
+| **Session scope** | Main conversation | Child sessions |
+| **Typical use** | Direct interaction | Specialized tasks |
+| **Tool access** | Full (configurable) | Full except todo (configurable) |
+| **User control** | Directly selected | Invoked by primary or user |
+
+---
+
+### How Agents Are Created
+
+Agents can be created in **three ways**:
+
+1. **Built-in** (shipped with OpenCode)
+   - Location: Server code
+   - Examples: Build, Plan, General, Explore
+   - Can be customized but not deleted
+
+2. **Configuration-based** (user-defined)
+   - Location: `opencode.json` or `~/.config/opencode/agents/*.md`
+   - Created by editing config files
+   - Full customization possible
+
+3. **CLI-generated** (interactive creation)
+   - Command: `opencode agent create`
+   - Interactive wizard
+   - Creates markdown file automatically
+
+---
+
+## Agent Types
+
+### Primary Agents
+
+Primary agents are the **main assistants** you directly interact with. You cycle through them using the **Tab** key (or configured keybind). They handle your primary conversation.
+
+**Key characteristics**:
+- Direct user interaction
+- Can have full or restricted tool access
+- One active at a time in a session
+- Can spawn subagents for specialized tasks
+
+**Built-in primary agents**:
+- `build` - Default agent, all tools enabled
+- `plan` - Analysis-only, no destructive tools
+- `compaction` - Hidden system agent (auto)
+- `title` - Hidden system agent (auto)
+- `summary` - Hidden system agent (auto)
+
+---
+
+### Subagents
+
+Subagents are **specialized assistants** that primary agents can invoke for specific tasks. They can also be manually invoked by typing `@agentname` in your message.
+
+**Key characteristics**:
+- Invoked by @mention or automatically
+- Run as **child sessions** (linked to parent)
+- Can work in parallel (multiple subagents)
+- Full tool access (except `todowrite`/`todoread` by default)
+
+**Built-in subagents**:
+- `general` - General-purpose, full access
+- `explore` - Read-only codebase exploration
+
+---
+
+### System Agents
+
+System agents are **hidden internal agents** that OpenCode uses automatically:
+
+- `compaction` - Compresses long conversation history into summaries
+- `title` - Generates session titles automatically
+- `summary` - Creates session summaries when requested
+
+These are **not user-selectable** and have no configuration.
+
+---
+
+## Built-in Agents
+
+### Build Agent
+
+**Mode**: `primary`  
+**Default**: Yes (the agent you start with)
+
+The Build agent is your **general-purpose developer**. It has **all tools enabled** and can:
+- Read and modify files
+- Run shell commands
+- Install dependencies
+- Build and test
+- Make any changes needed
+
+**When to use**:
+- Implementing new features
+- Fixing bugs
+- Refactoring code
+- Any development work
+
+**Configuration** (default):
+```json
+{
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "grep": true,
+        "glob": true,
+        "list": true,
+        "read": true,
+        "webfetch": true,
+        "patch": true
+      }
+    }
+  }
+}
+```
+
+---
+
+### Plan Agent
+
+**Mode**: `primary`  
+**Default**: Switched to with Tab key
+
+The Plan agent is **read-only by design**. It analyzes and suggests but **doesn't modify** files or run arbitrary commands. Its key permissions are set to `ask` (or `deny`):
+
+**Default restrictions**:
+- `edit` → `ask` (prompts for each file modification)
+- `bash` → `ask` (prompts for each command)
+- `webfetch` → `ask` (prompts for each fetch)
+
+**When to use**:
+- Planning architecture changes
+- Reviewing code and suggesting improvements
+- Creating implementation plans
+- Exploring ideas without risk
+- Generating requirements
+
+**Example workflow**:
+```
+1. Switch to Plan agent (Tab)
+2. Ask: "How should we implement authentication?"
+3. Plan agent analyzes and proposes approach
+4. Switch back to Build agent (Tab)
+5. Execute: "Implement the plan you just suggested"
+```
+
+**Configuration**:
+```json
+{
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "description": "Planning and analysis only - no code changes without approval",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      },
+      "permission": {
+        "edit": "ask",
+        "bash": "ask",
+        "webfetch": "ask"
+      }
+    }
+  }
+}
+```
+
+---
+
+### General Subagent
+
+**Mode**: `subagent`  
+**Default**: Available for auto-spawning or @mention
+
+General is a **full-featured subagent** with access to most tools (except `todowrite`/`todoread`). It can make changes, run commands, and execute complex multi-step tasks independently.
+
+**When to use**:
+- Complex research tasks
+- Parallel work streams
+- Delegated subtasks
+- When primary agent needs help
+
+**Invocation**:
+```
+@general Research AWS SDK best practices and create a summary document
+```
+
+**Configuration**:
+```json
+{
+  "agent": {
+    "general": {
+      "mode": "subagent",
+      "description": "General-purpose agent for complex research and multi-step tasks",
+      "tools": {
+        "todowrite": false,  // Disabled by default
+        "todoread": false   // Disabled by default
+      }
+    }
+  }
+}
+```
+
+---
+
+### Explore Subagent
+
+**Mode**: `subagent`  
+**Default**: Available for @mention
+
+Explore is a **fast, read-only agent** optimized for codebase exploration. It cannot modify files or run commands that change state.
+
+**When to use**:
+- Finding files and symbols
+- Understanding codebase structure
+- Searching for patterns
+- Answering questions about existing code
+
+**Example**:
+```
+@explore Find all React components that use the ThemeContext
+```
+
+**Configuration**:
+```json
+{
+  "agent": {
+    "explore": {
+      "mode": "subagent",
+      "description": "Fast read-only agent for exploring codebases",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false,
+        "patch": false
+      }
+    }
+  }
+}
+```
+
+---
+
+## Custom Agent Creation
+
+You can create **unlimited custom agents** tailored to your workflows.
+
+### Method 1: JSON Configuration
+
+Define agents in `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "security-reviewer": {
+      "description": "Reviews code for security vulnerabilities",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "temperature": 0.1,
+      "prompt": "You are a security expert. Focus on: OWASP Top 10, input validation, authentication flaws, data exposure, injection vulnerabilities.",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": true
+      },
+      "permission": {
+        "bash": {
+          "*": "ask",
+          "grep *": "allow",
+          "find *": "allow"
+        }
+      },
+      "color": "#ff4444"
+    }
+  }
+}
+```
+
+---
+
+### Method 2: Markdown Files
+
+Create `.opencode/agents/` directory and add `.md` files:
+
+**File**: `.opencode/agents/api-tester.md`
+
+```
+---
+description: Tests and validates API endpoints
+mode: subagent
+model: openai/gpt-4-turbo
+temperature: 0.2
+tools:
+  write: false
+  edit: false
+  bash: true
+permission:
+  bash:
+    "*": "ask"
+    "curl *": "allow"
+    "nc *": "allow"
+color: success
+---
+You are an API testing specialist. Your job is to:
+1. Examine API endpoints
+2. Test with various inputs
+3. Validate responses
+4. Report issues
+
+Use curl or netcat to test endpoints. Always test edge cases.
+```
+
+**Filename becomes agent name**: `api-tester.md` → `api-tester` agent
+
+---
+
+### Method 3: CLI Creation
+
+Use the interactive command:
+
+```bash
+opencode agent create
+```
+
+Interactive prompts:
+```
+? Where should this agent be saved? (Use arrow keys)
+> Global (~/.config/opencode/agents/)
+  Project (.opencode/agents/)
+
+? Agent name: security-auditor
+
+? Description: Performs security audits and identifies vulnerabilities
+
+? Select tools for this agent: (Press space to select, a to toggle all)
+> [x] read
+  [x] grep
+  [x] glob
+  [ ] write
+  [ ] edit
+  [x] bash
+  [ ] webfetch
+
+? Model: (Use arrow keys)
+> anthropic/claude-sonnet-4-20250514
+  anthropic/claude-haiku-4-20250514
+  openai/gpt-4-turbo
+  openai/gpt-3.5-turbo
+
+? Temperature (0.0-1.0): 0.1
+
+? Save configuration as: Markdown (recommended) or JSON
+```
+
+Creates file automatically with your specifications.
+
+---
+
+## Agent Configuration Options
+
+Agents support extensive configuration. Here's the complete reference:
+
+### Core Options
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `description` | string | yes | - | Brief description of agent's purpose |
+| `mode` | `"primary" \| "subagent" \| "all"` | no | `"all"` | How agent can be used |
+| `disable` | boolean | no | `false` | Disable this agent |
+| `prompt` | string (file path) | no | - | System prompt file |
+| `model` | string (provider/model) | no | (uses default) | LLM model to use |
+| `temperature` | number (0-1) | no | model default | Randomness control |
+| `steps` | number | no | unlimited | Max agentic iterations |
+| `hidden` | boolean | no | `false` | Hide from @autocomplete (subagents only) |
+| `color` | string (hex/theme) | no | - | UI accent color |
+| `top_p` | number (0-1) | no | - | Alternative to temperature |
+
+### Tools & Permissions
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `tools` | object | Enable/disable specific tools (`write: true/false`) |
+| `permission` | object | Granular permissions (`edit: "ask/allow/deny"`) |
+| `task` | object | Subagent invocation permissions (glob patterns) |
+
+### Additional Options
+
+Any other fields are **passed through** to the LLM provider as model-specific parameters.
+
+---
+
+## Agent Permissions Deep Dive
+
+Permissions control **what agents can do**. They're crucial for safety and cost control.
+
+### Permission Levels
+
+| Level | Meaning | Use Case |
+|-------|---------|----------|
+| `allow` | Always permitted | Safe operations (read, grep) |
+| `ask` | Prompt for approval each time | Dangerous operations (edit, bash) |
+| `deny` | Completely blocked | High-risk operations (delete, rm) |
+
+---
+
+### Tool-specific Permissions
+
+```json
+{
+  "agent": {
+    "safe-agent": {
+      "permission": {
+        "edit": "deny",
+        "bash": "ask",
+        "webfetch": "allow"
+      }
+    }
+  }
+}
+```
+
+**Tool permissions cascade**: Agent-specific overrides global config.
+
+---
+
+### Command-specific Permissions
+
+For `bash` tool, you can whitelist/blacklist specific commands:
+
+```json
+{
+  "agent": {
+    "dev": {
+      "permission": {
+        "bash": {
+          "*": "ask",              // Default: ask for all
+          "git status": "allow",   // Git status always ok
+          "git log": "allow",
+          "npm test": "allow",     // Tests always ok
+          "rm *": "deny",          // Never allow delete
+          "dd *": "deny"           // Never allow destructive disk ops
+        }
+      }
+    }
+  }
+}
+```
+
+**Pattern matching**: Commands are matched as strings (prefix or glob-like). `*` matches anything.
+
+**Order matters**: Last matching rule wins.
+
+```json
+{
+  "permission": {
+    "bash": {
+      "*": "deny",           // 1. Deny everything first
+      "git status": "allow", // 2. Then allow specific safe commands
+      "npm test": "allow"
+    }
+  }
+}
+```
+
+---
+
+### Task Permissions (Subagent Invocation)
+
+Control which **subagents** an agent can invoke via the Task tool (@task or automatic delegation):
+
+```json
+{
+  "agent": {
+    "orchestrator": {
+      "permission": {
+        "task": {
+          "*": "deny",                    // Deny all by default
+          "orchestrator-*": "allow",     // Allow orchestrator's own subagents
+          "code-reviewer": "ask"          // Ask before invoking reviewer
+        }
+      }
+    }
+  }
+}
+```
+
+**Important**: Even if task permissions deny, users can **still manually @mention** any subagent. Task permissions only restrict **automatic** invocation by the agent.
+
+---
+
+## Using Agents via SDK
+
+### List Available Agents
+
+```typescript
+const agents = await client.app.agents();
+console.log(`Found ${agents.data.length} agents:`);
+
+agents.data.forEach(agent => {
+  console.log(`- ${agent.name} (${agent.mode})`);
+  console.log(`  ${agent.description}`);
+  console.log(`  Model: ${agent.model}`);
+  console.log(`  Tools: ${Object.keys(agent.tools || {}).join(', ')}`);
+});
+```
+
+---
+
+### Switch Agents in Session
+
+Change the active agent for a session:
+
+```typescript
+// Switch to Plan agent
+await client.session.update({
+  path: { id: sessionId },
+  body: {
+    agent: "plan"  // Agent name
+  }
+});
+
+// Verify current agent
+const session = await client.session.get({ path: { id: sessionId } });
+console.log(`Current agent: ${session.data.agent}`);
+```
+
+---
+
+### Invoke Subagents
+
+Subagents are invoked inline within a prompt:
+
+```typescript
+// Direct subagent invocation
+const response = await client.session.prompt({
+  path: { id: sessionId },
+  body: {
+    parts: [
+      {
+        type: "text",
+        text: "@explore Find all components using Material-UI"
+      }
+    ]
+  }
+});
+```
+
+The primary agent will delegate to the `explore` subagent, which runs as a child session.
+
+---
+
+### Create Custom Agent Sessions
+
+When creating a session, specify which agent to use:
+
+```typescript
+const session = await client.session.create({
+  body: {
+    title: "Security review",
+    agent: "security-reviewer"  // Use custom agent
+  }
+});
+```
+
+If `agent` is not specified, uses the default (`build`).
+
+---
+
+### Monitor Agent Activity
+
+Track which agents are doing what via events:
+
+```typescript
+const events = await client.event.subscribe({
+  query: { eventType: "agent.created,agent.completed" }
+});
+
+for await (const event of events.stream) {
+  if (event.type === 'agent.created') {
+    console.log(`🤖 Agent ${event.properties.agent} spawned`);
+    console.log(`   Parent session: ${event.sessionID}`);
+  }
+  if (event.type === 'agent.completed') {
+    console.log(`✅ Agent ${event.properties.agentID} finished`);
+    console.log(`   Messages: ${event.properties.messageCount}`);
+  }
+}
+```
+
+---
+
+## Agent Patterns
+
+### Pattern 1: Specialized Workflows
+
+Create agents for specific tasks:
+
+```json
+{
+  "agent": {
+    "docs-writer": {
+      "description": "Writes and maintains documentation",
+      "mode": "subagent",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": false
+      },
+      "permission": {
+        "edit": "ask"  // Require approval for doc changes
+      }
+    },
+    "migration-helper": {
+      "description": "Assists with database migrations",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4",  // Capable model
+      "temperature": 0.2,  // Deterministic
+      "tools": {
+        "bash": true,
+        "write": true,
+        "edit": true
+      },
+      "permission": {
+        "bash": {
+          "*": "ask",
+          "prisma migrate*": "allow",
+          "knex migrate*": "allow"
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+### Pattern 2: Cost Optimization
+
+Use cheaper models for simple tasks:
+
+```json
+{
+  "agent": {
+    "quick-fix": {
+      "description": "Quick bug fixes and small changes",
+      "mode": "primary",
+      "model": "anthropic/claude-haiku-4-20250514",  // Cheaper
+      "temperature": 0.1,
+      "steps": 5  // Limit iterations
+    },
+    "complex-refactor": {
+      "description": "Complex refactoring and architecture",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-4-20250514",  // Premium
+      "temperature": 0.3,
+      "steps": 20
+    }
+  }
+}
+```
+
+---
+
+### Pattern 3: Quality Gates
+
+Multi-agent review pipeline:
+
+```typescript
+// Orchestrate multiple agents for quality
+async function qualityReview(sessionId: string, code: string) {
+  const { client } = await createOpencode();
+  
+  // Step 1: Security review
+  await client.session.prompt({
+    path: { id: sessionId },
+    body: {
+      parts: [
+        { type: "text", text: "@security-reviewer Review this code for vulnerabilities:\n\n" + code }
+      ]
+    }
+  });
+  
+  // Step 2: Performance review
+  await client.session.prompt({
+    path: { id: sessionId },
+    body: {
+      parts: [
+        { type: "text", text: "@performance-reviewer Analyze performance:\n\n" + code }
+      ]
+    }
+  });
+  
+  // Step 3: General code quality
+  await client.session.prompt({
+    path: { id: sessionId },
+    body: {
+      parts: [
+        { type: "text", text: "@general Check code quality and best practices:\n\n" + code }
+      ]
+    }
+  });
+  
+  // Step 4: Build agent compiles feedback
+  await client.session.prompt({
+    path: { id: sessionId },
+    body: {
+      parts: [
+        { type: "text", text: "Synthesize all reviews and provide final assessment" }
+      ]
+    }
+  });
+}
+```
+
+---
+
+### Pattern 4: Hierarchical Delegation
+
+Primary agents spawn subagents for subtasks:
+
+```typescript
+// User asks a complex question to primary agent
+await client.session.prompt({
+  path: { id: sessionId },
+  body: {
+    parts: [
+      { type: "text", text: "We need to add authentication. Please:" }
+    ]
+  }
+});
+
+// Primary agent might automatically:
+// 1. Spawn @explore to investigate current auth setup
+// 2. Spawn @general to design implementation
+// 3. Spawn @docs-writer to update documentation
+// All as child sessions, reporting back
+
+// You can monitor this via events
+const events = await client.event.subscribe({
+  query: { eventType: "agent.created,agent.completed" }
+});
+```
+
+---
+
+### Pattern 5: Agent Pool
+
+Reuse specialized agents across projects:
+
+```typescript
+class AgentPool {
+  private agents: Map<string, string> = new Map(); // name → sessionId
+  
+  async getOrCreate(name: string, agentType: string): Promise<string> {
+    if (this.agents.has(name)) {
+      return this.agents.get(name)!;
+    }
+    
+    const session = await client.session.create({
+      body: {
+        title: `Agent: ${name}`,
+        agent: agentType  // Use specific agent
+      }
+    });
+    
+    this.agents.set(name, session.data.id);
+    return session.data.id;
+  }
+  
+  async invoke(agentName: string, prompt: string) {
+    const sessionId = await this.getOrCreate(agentName, agentName);
+    return await client.session.prompt({
+      path: { id: sessionId },
+      body: { parts: [{ type: "text", text: prompt }] }
+    });
+  }
+}
+
+// Usage
+const pool = new AgentPool();
+await pool.invoke("security-reviewer", "Review this login code...");
+await pool.invoke("docs-writer", "Write docs for this API...");
+```
+
+---
+
+## Agent vs Tool Distinction
+
+**Common confusion**: Agents vs Tools
+
+| Aspect | Agent | Tool |
+|--------|-------|------|
+| **What** | LLM with personality/role | Specific function the LLM can call |
+| **Granularity** | Coarse (entire conversation) | Fine (individual action) |
+| **State** | Maintains conversation | Stateless operation |
+| **Example** | "Code reviewer" agent | `grep` tool for searching |
+| **Configuration** | `opencode.json` → `agent` | `opencode.json` → `tools` |
+| **Invocation** | Tab key, @mention, session creation | Automatically called by agent |
+
+**Analogy**:
+- **Agent** = Chef (Italian chef, pastry chef, sushi chef)
+- **Tool** = Knife, stove, whisk (capabilities the chef uses)
+
+An agent uses multiple tools to accomplish its mission.
+
+---
+
+## Security Considerations
+
+### 1. Permission Management
+
+Always restrict dangerous agents:
+
+```json
+{
+  "agent": {
+    "plan": {
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    }
+  }
+}
+```
+
+### 2. Model Selection
+
+Not all models are equal. Use appropriate models:
+
+- **Critical tasks** (security, production): Use high-quality models (Sonnet, GPT-4)
+- **Exploratory** (research, brainstorming): Can use cheaper models (Haiku, GPT-3.5)
+- **Simple tasks** (formatting, linting): Even smaller models may suffice
+
+### 3. Tool Whitelisting
+
+Least privilege principle:
+
+```json
+{
+  "tools": {
+    "write": false,
+    "edit": false,
+    "bash": false,
+    "webfetch": false
+  },
+  "agent": {
+    "docs-writer": {
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": false  // Docs writer doesn't need shell access
+      }
+    }
+  }
+}
+```
+
+### 4. Task Permissions
+
+Prevent rogue agent spawning:
+
+```json
+{
+  "agent": {
+    "user-facing": {
+      "permission": {
+        "task": {
+          "*": "deny",  // Don't let this agent spawn others
+          "user-facing-*": "allow"  // Only its own subagents
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Performance Optimization
+
+### 1. Model Selection
+
+Faster models for simple tasks:
+
+| Agent Type | Recommended Model | Reason |
+|------------|------------------|--------|
+| Explore | Claude Haiku | Fast read-only exploration |
+| Plan | Claude Sonnet | Good reasoning, medium cost |
+| Build | Claude Sonnet 4 | Capable for complex tasks |
+| Docs | GPT-4 Turbo | Good writing quality |
+
+---
+
+### 2. Temperature Tuning
+
+Lower temperature = more deterministic = faster (less retries):
+
+```json
+{
+  "agent": {
+    "explore": { "temperature": 0.0 },  // Exact matches
+    "plan": { "temperature": 0.1 },     // Slight variation ok
+    "creative": { "temperature": 0.7 } // Maximum creativity
+  }
+}
+```
+
+---
+
+### 3. Step Limiting
+
+Prevent infinite loops for cost control:
+
+```json
+{
+  "agent": {
+    "quick-check": {
+      "steps": 5,  // Max 5 tool iterations
+      "description": "Quick analysis, limited steps"
+    }
+  }
+}
+```
+
+---
+
+### 4. Caching Agent Sessions
+
+Agent state is session-specific. For repeated tasks, reuse sessions:
+
+```typescript
+const agentSessionCache = new Map<string, string>();
+
+async function getAgentSession(agentName: string): Promise<string> {
+  if (agentSessionCache.has(agentName)) {
+    return agentSessionCache.get(agentName)!;
+  }
+  
+  const session = await client.session.create({
+    body: { agent: agentName, title: `Agent ${agentName}` }
+  });
+  
+  agentSessionCache.set(agentName, session.data.id);
+  return session.data.id;
+}
+```
+
+---
+
+## Troubleshooting Agents
+
+### Problem: Agent not appearing in @mention autocomplete
+
+**Solution**:
+- Check `mode: "subagent"` (only subagents are @mentionable)
+- Check `hidden: true` (should be false or omitted)
+- Verify agent file is in correct location:
+  - Global: `~/.config/opencode/agents/`
+  - Project: `.opencode/agents/`
+- Restart OpenCode after adding agents
+
+---
+
+### Problem: Agent ignores tool restrictions
+
+**Solution**:
+- Verify permissions are set correctly
+- Primary agents can often use tools even if subagents can't
+- Check for conflicting global `tools` config that overrides
+- Use `permission` field for finer control than `tools`
+
+---
+
+### Problem: Agent spawns wrong subagent
+
+**Solution**:
+- Check agent's `permission.task` settings
+- Primary agent chooses subagent based on description and task
+- You can force specific subagent with @mention
+
+---
+
+### Problem: Custom agent not loading
+
+**Solution**:
+- Validate JSON/YAML syntax in `opencode.json`
+- For markdown agents, ensure frontmatter is valid (between `---` delimiters)
+- Check file permissions (readable by OpenCode process)
+- Look at OpenCode logs for parsing errors
+
+---
+
+### Problem: Agent uses wrong model
+
+**Solution**:
+- Check global `model` config
+- Check agent-specific `model` config
+- Agent model overrides global if specified
+- Use `client.config.get()` to see effective config
+
+---
+
+## Best Practices
+
+### ✅ DO
+
+1. **Use Plan agent for analysis** - Safer, prevents accidental changes
+2. **Give agents clear descriptions** - Helps model understand its role
+3. **Restrict dangerous tools** - Use `permission: "ask"` for bash/edit
+4. **Choose appropriate models** - Match model capability to task complexity
+5. **Set temperature appropriately** - Lower for deterministic tasks
+6. **Limit steps for cost control** - Prevent infinite tool loops
+7. **Use custom agents for specialization** - Security reviewer, docs writer, etc.
+8. **Monitor via events** - Track agent activity and performance
+9. **Test agents in isolation** - Verify they behave as expected
+10. **Share useful agents** - Contribute to community
+
+---
+
+### ❌ DON'T
+
+1. **Don't give all agents full access** - Principle of least privilege
+2. **Don't use very high temperature** (>0.8) for code tasks - Too random
+3. **Don't ignore step limits** - Can lead to unexpected costs
+4. **Don't hardcode secrets in prompts** - Use env vars or external tools
+5. **Don't create circular agent delegations** - A calls B which calls A
+6. **Don't forget to document custom agents** - Others need to understand them
+7. **Don't use experimental features in production** - Test first
+8. **Don't set `hidden: true` for user-facing agents** - Makes them inaccessible
+
+---
+
+## Common Questions
+
+### Q: What's the difference between primary and subagent modes?
+
+**Answer**:
+- **Primary**: Direct user interaction, Tab key switchable, one active at a time
+- **Subagent**: Invoked via @mention or auto-delegation, can run parallel as child sessions
+- **Hidden primary**: Not shown but can be selected? Actually primary agents are always in the rotation unless hidden doesn't apply to them. Subagents with `hidden: true` don't appear in @autocomplete.
+
+---
+
+### Q: Can an agent change its own configuration?
+
+**Answer**: No. Agent configuration is static (from `opencode.json` or markdown files). An agent cannot modify its own permissions, tools, or prompt. To change an agent, edit the config file and restart OpenCode.
+
+---
+
+### Q: Do agents share state?
+
+**Answer**: No. Each session has its own agent instance with isolated conversation state. If you want to share context between agent sessions, you must:
+- Use the same session and switch agents (shares history)
+- Manually copy messages/information
+- Use a shared knowledge base (files, database)
+
+---
+
+### Q: Can I use different providers for different agents?
+
+**Answer**: Yes! Set `model` per agent:
+
+```json
+{
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    "plan": {
+      "model": "anthropic/claude-haiku-4-20250514"
+    },
+    "creative": {
+      "model": "openai/gpt-4-turbo"
+    }
+  }
+}
+```
+
+Each agent can use a different provider/model combo.
+
+---
+
+### Q: How do agents decide which tools to use?
+
+**Answer**: The LLM decides based on:
+1. **System prompt** - Instruction about available tools
+2. **Tool descriptions** - Each tool has a description explaining its purpose
+3. **Permissions** - Only permitted tools are exposed to the model
+4. **Context** - What you ask it to do
+
+You can further constrain with `tools` config to only enable specific tools for an agent.
+
+---
+
+### Q: Can I create an agent that only reads files?
+
+**Answer**: Yes:
+
+```json
+{
+  "agent": {
+    "reader": {
+      "description": "Read-only agent for code review",
+      "mode": "subagent",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    }
+  }
+}
+```
+
+Or use the built-in `explore` agent which is already read-only.
+
+---
+
+### Q: Do agents respect .gitignore?
+
+**Answer**: Tools (grep, glob, list, read) respect `.gitignore` by default (via ripgrep). Agents cannot bypass this unless you configure `.opencode/.ignore` to include excluded files. This is a **safety feature** to prevent agents from reading generated files.
+
+---
+
+### Q: Can I use agents with the SDK?
+
+**Answer**: Yes! Agents are configured server-side. The SDK just sends prompts. You can:
+- Create sessions with specific agents (`session.create({ body: { agent: "my-agent" } })`)
+- Switch agents mid-session (`session.update({ body: { agent: "plan" } })`)
+- Invoke subagents with @mention in your prompt text
+
+---
+
+### Q: How do I debug why an agent made a certain decision?
+
+**Answer**:
+1. Check session messages: `client.session.messages()` to see full conversation
+2. Check events: `client.event.subscribe()` to see tool calls
+3. Look at agent configuration: `client.config.get()` to see active agents
+4. Increase verbosity: Set `"debug": true` in config (if available)
+
+---
+
+### Q: Can agents be shared between projects?
+
+**Answer**: Yes. Agents can be defined:
+- **Globally**: `~/.config/opencode/agents/` - Available in all projects
+- **Per-project**: `.opencode/agents/` - Only for that project
+
+Use global for personal agents, project-specific for team standards.
+
+---
+
+### Q: What happens when an agent exceeds its step limit?
+
+**Answer**: When `steps` limit is reached:
+- Agent receives a system message: "You have reached the step limit. Provide a summary."
+- Agent must respond with text only (no more tool calls)
+- Session continues but agent becomes read-only for that turn
+- User can continue conversation or delegate to another agent
+
+---
+
+### Q: Are there default agents in every OpenCode installation?
+
+**Answer**: Yes, these are always available:
+- `build` (primary)
+- `plan` (primary)
+- `general` (subagent)
+- `explore` (subagent)
+- `compaction`, `title`, `summary` (hidden system)
+
+You can disable built-in agents but cannot delete them.
+
+---
+
+## Summary
+
+**Agents are the "who" of OpenCode** - they define **who** is doing the work:
+
+- **Primary agents**: Your main interface (Build, Plan, custom)
+- **Subagents**: Specialized helpers (General, Explore, custom)  
+- **System agents**: Hidden automation (compaction, title, summary)
+
+**Create custom agents** for:
+- Security review
+- Documentation writing
+- Testing/QA
+- Database migrations
+- Legacy code modernization
+- Anything with a repeatable pattern!
+
+**Configuration**:
+- JSON: `opencode.json` → `agent` key
+- Markdown: `.opencode/agents/*.md`
+- CLI: `opencode agent create`
+
+**Control**:
+- Tools: Which actions agent can take
+- Permissions: Ask/Allow/Deny for safety
+- Model: Which LLM to use
+- Temperature/Steps: Cost/quality tuning
+- Task permissions: Which subagents can spawn
+
+**Next**: Combine agents with [sessions](#sessions-deep-dive), [tools](#tools-deep-dive), and [events](#events-deep-dive) for sophisticated AI workflows!
+
+---
+
 ## Resources
+
+| Resource | URL |
+|----------|-----|
+| Agents Documentation | https://opencode.ai/docs/agents/ |
+| SDK app.agents() | https://opencode.ai/docs/sdk#app |
+| Agent Configuration | https://opencode.ai/docs/config/ |
+| Permissions Guide | https://opencode.ai/docs/permissions/ |
+| Custom Tools (for agent skills) | https://opencode.ai/docs/custom-tools/ |
+
+---
+
+## Next Steps
+
+| Resource | URL |
+|----------|-----|
+| File API Reference | https://opencode.ai/docs/sdk#files |
+| Built-in Tools: grep | https://opencode.ai/docs/tools#grep |
+| Built-in Tools: glob | https://opencode.ai/docs/tools#glob |
+| Built-in Tools: list | https://opencode.ai/docs/tools#list |
+| Built-in Tools: read | https://opencode.ai/docs/tools#read |
+| ripgrep patterns | https://docs.rs/ripgrep/12.0.0/ripgrep/ |
+
+---
+
+## Next Steps
+
+| Resource | URL |
+|----------|-----|
+| Server API (Events) | https://opencode.ai/docs/server#events |
+| SSE Specification | https://html.spec.whatwg.org/multipage/server-sent-events.html |
+| SDK event.subscribe() | https://opencode.ai/docs/sdk#events |
+
+---
+
+## Next Steps
 
 | Resource | URL |
 |----------|-----|
