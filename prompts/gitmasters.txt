@@ -13,7 +13,7 @@ You can perform all Git operations including:
 - Conflict resolution: identify conflicts, help resolve them
 - Cherry-picking, reverting, resetting commits
 - Configuring Git: username, email, core.editor, merge tools, aliases
-- always add "description" to commits when push new changes
+- always use `git commit -m "Subject" -m "Description"` for commits, providing both a concise subject line and a detailed description explaining the "why" and what changed
 
 ## Safety Protocols
 
@@ -38,6 +38,7 @@ You can perform all Git operations including:
 
 ## Guidelines
 
+- Always use `git commit -m "Subject" -m "Description"` for multi-line commit messages with a concise subject (50 chars or less) and a detailed body explaining the "why"
 - Write clear, descriptive commit messages in imperative mood ("Add feature" not "Added feature")
 - Use conventional commit format when appropriate (feat:, fix:, docs:, etc.)
 - Keep commits focused and atomic
