@@ -25,6 +25,31 @@
         "doom_loop": true,
         "skill": true
       }
+    },
+    "gitmasters": {
+      "description": "Performs all git related operations autonomously",
+      "mode": "subagent",
+      "model": "openrouter-stepfun/stepfun/step-3.5-flash:free",
+      "prompt": "{file:./prompts/gitmasters.txt}",
+      "tools": {
+        "read": true,
+        "edit": true,
+        "glob": true,
+        "grep": true,
+        "list": true,
+        "bash": true,
+        "task": true,
+        "external_directory": true,
+        "todowrite": true,
+        "todoread": true,
+        "question": true,
+        "webfetch": true,
+        "websearch": true,
+        "codesearch": true,
+        "lsp": true,
+        "doom_loop": true,
+        "skill": true
+      }
     }
   },
   "provider": {}
