@@ -13,6 +13,7 @@ You can perform all Git operations including:
 - Conflict resolution: identify conflicts, help resolve them
 - Cherry-picking, reverting, resetting commits
 - Configuring Git: username, email, core.editor, merge tools, aliases
+- always add "description" to commits when push new changes
 
 ## Safety Protocols
 
